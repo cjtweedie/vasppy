@@ -37,6 +37,24 @@ class GetForcesDataTestCase(unittest.TestCase):
                 forces_data = get_forces_data("test_outcar")
 
                 self.assertEqual(forces_data.convergence, 0.05)
+                
+    def test_read_ediffg_with_lowercase_scientific_notation(self):
+        """Test that read_ediffg_from_outcar handles lowercase scientific notation."""
+        outcar_content = "EDIFFG = -1e-4\n"
+    
+        with patch("builtins.open", mock_open(read_data=outcar_content)):
+            from vasppy.scripts.checkforce import read_ediffg_from_outcar
+            convergence = read_ediffg_from_outcar("test_outcar")
+            self.assertEqual(convergence, 1e-4)
+    
+    def test_read_ediffg_with_uppercase_scientific_notation(self):
+        """Test that read_ediffg_from_outcar handles uppercase scientific notation."""
+        outcar_content = "EDIFFG = -1E-4\n"
+    
+        with patch("builtins.open", mock_open(read_data=outcar_content)):
+            from vasppy.scripts.checkforce import read_ediffg_from_outcar
+            convergence = read_ediffg_from_outcar("test_outcar")
+            self.assertEqual(convergence, 1E-4)
 
     def test_get_forces_data_uses_provided_convergence(self):
         """Test that get_forces_data uses provided convergence value instead of reading EDIFFG."""

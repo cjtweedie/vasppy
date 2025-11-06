@@ -142,7 +142,7 @@ def read_ediffg_from_outcar(outcar_filename: str) -> float:
     """
     with open(outcar_filename, "r") as f:
         outcar = f.read()
-    convergence_re = re.compile(r"EDIFFG = -([\d\.E-]+)")
+    convergence_re = re.compile(r"EDIFFG = -([\d\.Ee-]+)")
     try:
         convergence = float(convergence_re.findall(outcar)[0])
     except IndexError as exc:
