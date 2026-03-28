@@ -1,7 +1,14 @@
 #! /usr/bin/env python3
+"""Check force convergence of VASP geometry optimisations."""
+
+import sys
+if sys.platform != "win32":
+    from signal import signal, SIGPIPE, SIG_DFL
+    signal(SIGPIPE, SIG_DFL)
 
 import argparse
 import re
+from collections.abc import Iterator
 import numpy as np
 from dataclasses import dataclass, field
 
@@ -100,7 +107,7 @@ def get_forces_data(
         ForcesData object with forces and summary statistics.
 
     """
-    if not convergence:
+    if convergence is None:
         convergence = read_ediffg_from_outcar(outcar_filename)
     forces = forces_from_outcar(outcar_filename, last_one_only=True)
     forces_data = ForcesData(forces=forces, convergence=convergence)
@@ -109,7 +116,7 @@ def get_forces_data(
 def get_all_forces_data(
     outcar_filename: str = "OUTCAR",
     convergence: float | None = None,
-):
+) -> Iterator[ForcesData]:
     """Parse an OUTCAR file and yield forces data for all ionic steps.
 
     Args:
@@ -121,7 +128,7 @@ def get_all_forces_data(
         ForcesData object for each ionic step.
 
     """
-    if not convergence:
+    if convergence is None:
         convergence = read_ediffg_from_outcar(outcar_filename)
     all_forces = forces_from_outcar(outcar_filename, last_one_only=False)
     for step_forces in all_forces:

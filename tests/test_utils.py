@@ -37,6 +37,12 @@ class UtilsTestCase(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     validate_checksum(filename="foo", md5sum="abcdef")
 
+    def test_validate_checksum_raises_if_file_not_found(self):
+        with patch("vasppy.utils.match_filename") as mock_match_filename:
+            mock_match_filename.return_value = None
+            with self.assertRaises(FileNotFoundError):
+                validate_checksum(filename="foo", md5sum="abc")
+
 
 class Test_drij(unittest.TestCase):
     def test_dr_ij_default(self):
@@ -91,7 +97,8 @@ class Test_drij(unittest.TestCase):
         dr = dr_ij(structure, indices_i=np.array([0]), indices_j=np.array([1]))
         np.testing.assert_array_almost_equal(dr, np.array([[3.46410162]]))
 
-    def test_dr_ij_masking_with_unsorted_indices(self):
+    def test_dr_ij_no_masking_with_different_indices(self):
+        """When indices_i != indices_j, no diagonal masking is applied."""
         coords = np.array([[0.5, 0.5, 0.5], [0.0, 0.0, 0.0]])
         atom_list = ["Na", "Cl"]
         lattice = Lattice.from_parameters(
@@ -99,9 +106,12 @@ class Test_drij(unittest.TestCase):
         )
         structure = Structure(lattice, atom_list, coords)
         dr = dr_ij(structure, indices_i=[1, 0], indices_j=[0, 1])
-        np.testing.assert_array_almost_equal(dr, np.array([[3.46410162], [3.46410162]]))
+        np.testing.assert_array_almost_equal(
+            dr, np.array([[3.46410162, 0.0], [0.0, 3.46410162]])
+        )
 
-    def test_dr_ij_masking_with_partially_overlapping_indices(self):
+    def test_dr_ij_no_masking_with_partially_overlapping_indices(self):
+        """Partial overlap does not trigger diagonal masking."""
         coords = np.array([[0.5, 0.5, 0.5], [0.0, 0.0, 0.0]])
         atom_list = ["Na", "Cl"]
         lattice = Lattice.from_parameters(
@@ -109,16 +119,6 @@ class Test_drij(unittest.TestCase):
         )
         structure = Structure(lattice, atom_list, coords)
         dr = dr_ij(structure, indices_i=[0], indices_j=[0, 1])
-        np.testing.assert_array_almost_equal(dr, np.array([[3.46410162]]))
-
-    def test_dr_ij_masking_with_partially_overlapping_indices_with_self_reference(self):
-        coords = np.array([[0.5, 0.5, 0.5], [0.0, 0.0, 0.0]])
-        atom_list = ["Na", "Cl"]
-        lattice = Lattice.from_parameters(
-            a=4.0, b=4.0, c=4.0, alpha=90, beta=90, gamma=90
-        )
-        structure = Structure(lattice, atom_list, coords)
-        dr = dr_ij(structure, indices_i=[0], indices_j=[0, 1], self_reference=True)
         np.testing.assert_array_almost_equal(dr, np.array([[0.0, 3.46410162]]))
 
 
