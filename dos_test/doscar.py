@@ -151,14 +151,26 @@ class Doscar:
         Populates ``self.energy`` and ``self.tdos``.
         """
         start_to_read: int = Doscar.number_of_header_lines
-        df: pd.DataFrame = pd.read_csv(
-            self.filename,
-            skiprows=start_to_read,
-            nrows=self.number_of_data_points,
-            sep=r'\s+',
-            names=["energy", "up", "down", "int_up", "int_down"],
-            index_col=False,
-        )
+        # if ispin=2, DOSCAR contains up/down spin columns
+        if (self.ispin == 2):
+            df: pd.DataFrame = pd.read_csv(
+                self.filename,
+                skiprows=start_to_read,
+                nrows=self.number_of_data_points,
+                sep=r'\s+',
+                names=["energy", "up", "down", "int_up", "int_down"],
+                index_col=False,
+            )
+        # if ispin=1, DOSCAR only contains total and integrated DOS
+        else:
+            df: pd.DataFrame = pd.read_csv(
+                self.filename,
+                skiprows=start_to_read,
+                nrows=self.number_of_data_points,
+                sep=r'\s+',
+                names=["energy", "dos", "int"],
+                index_col=False,
+            )
         self.energy: np.ndarray = df.energy.values
         df = df.drop("energy", axis=1)
         self.tdos = df
@@ -455,21 +467,38 @@ class Doscar:
                     c=c+1
                      
         if plot_total_dos == True:
-            ax.fill_between(
-                self.energy[e_range],
-                self.tdos.up.values[e_range],
-                self.tdos.down.values[e_range] * -1.0,
-                facecolor=TABLEAU_GREY,
-                alpha=0.2,
-            )
-            auto_ymax = max(
-                [
-                    auto_ymax,
-                    self.tdos.up.values[e_range].max(),
-                    self.tdos.down.values[e_range].max(),
-                ]
-            )
-            ymin = -ymax * 1.1
+            print("Plotting total DOS!")
+            if ispin == 2:
+                ax.fill_between(
+                    self.energy[e_range],
+                    self.tdos.up.values[e_range],
+                    self.tdos.down.values[e_range] * -1.0,
+                    facecolor=TABLEAU_GREY,
+                    alpha=0.2,
+                )
+                auto_ymax = max(
+                    [
+                        auto_ymax,
+                        self.tdos.up.values[e_range].max(),
+                        self.tdos.down.values[e_range].max(),
+                    ]
+                )
+            else:
+                #ax.fill_between(
+                #    self.energy[e_range],
+                #    self.tdos.dos.values[e_range],
+                #    facecolor=TABLEAU_GREY,
+                #    alpha=0.2,
+                #)
+                ax.plot(self.energy[e_range], self.tdos.dos.values[e_range], c="black")
+                auto_ymax = max(
+                    [
+                        auto_ymax,
+                        self.tdos.dos.values[e_range].max()
+                    ]
+                )
+                
+            #ymin = -ymax * 1.1
 
         if xrange:
             ax.set_xlim(xrange[0], xrange[1])
