@@ -490,7 +490,7 @@ class Doscar:
                 #    facecolor=TABLEAU_GREY,
                 #    alpha=0.2,
                 #)
-                ax.plot(self.energy[e_range], self.tdos.dos.values[e_range], c="black")
+                ax.plot(self.energy[e_range], self.tdos.dos.values[e_range], label="Total", c="black", linestyle='--')
                 auto_ymax = max(
                     [
                         auto_ymax,
