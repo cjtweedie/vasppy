@@ -467,7 +467,7 @@ class Doscar:
                     c=c+1
                      
         if plot_total_dos == True:
-            print("Plotting total DOS!")
+            #print("Plotting total DOS!")
             if ispin == 2:
                 ax.fill_between(
                     self.energy[e_range],
