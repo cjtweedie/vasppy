@@ -464,6 +464,7 @@ class Doscar:
                     #ax.plot(self.energy[e_range], up_dos, label=label, c=colour)
                     #ax.plot(self.energy[e_range], down_dos * -1.0, c=colour)
                     ax.plot(self.energy[e_range], both_dos, label=label, c=colours[c])
+                    # add something here to plot the Fermi energy; or shift values to be relative to E_F
                     c=c+1
                      
         if plot_total_dos == True:
@@ -490,7 +491,7 @@ class Doscar:
                 #    facecolor=TABLEAU_GREY,
                 #    alpha=0.2,
                 #)
-                ax.plot(self.energy[e_range], self.tdos.dos.values[e_range], label="Total", c="black", linestyle='--')
+                ax.plot(self.energy[e_range], self.tdos.dos.values[e_range], label="Total", c="black", linestyle='-')
                 auto_ymax = max(
                     [
                         auto_ymax,
