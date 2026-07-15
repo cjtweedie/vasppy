@@ -500,6 +500,7 @@ class Doscar:
                 )
                 
             #ymin = -ymax * 1.1
+        ax.axvline(x=self.efermi, c="black", label="$E_F$", linestyle='--')
 
         if xrange:
             ax.set_xlim(xrange[0], xrange[1])
@@ -514,7 +515,7 @@ class Doscar:
             ax.legend(loc=legend_pos)
         if labels:
             ax.set_xlabel("Energy [eV]")
-            ax.set_ylabel("DOS")
+            ax.set_ylabel("DOS [a.u.]")
         #ax.axhline(y=0, c="lightgrey")
         #ax.axes.grid(False, axis="y") # type: ignore
 
