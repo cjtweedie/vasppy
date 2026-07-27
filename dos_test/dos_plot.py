@@ -9,6 +9,7 @@ from collections.abc import Iterable
 
 pristine_pos = read("pristine_POSCAR")
 min1_pos = read("min1_POSCAR")
+min2_pos = read("min2_POSCAR")
 saddle_pos = read("saddle_POSCAR")
 #print(min1_pos.get_chemical_symbols())
 
@@ -19,7 +20,9 @@ pristine_k7_dos = Doscar("pristine_k7_DOSCAR", ispin=1, lmax=2, lorbit=11, read_
 pristine_k7b_dos = Doscar("pristine_k7b_DOSCAR", ispin=1, lmax=2, lorbit=11, read_pdos=True, species=pristine_pos.get_chemical_symbols())
 min1_k5_dos = Doscar("min1_k5_DOSCAR", ispin=1, lmax=2, lorbit=11, read_pdos=True, species=min1_pos.get_chemical_symbols())
 min1_k7_dos = Doscar("min1_k7_DOSCAR", ispin=1, lmax=2, lorbit=11, read_pdos=True, species=min1_pos.get_chemical_symbols())
+min2_k7_dos = Doscar("min2_k7_DOSCAR", ispin=1, lmax=2, lorbit=11, read_pdos=True, species=min1_pos.get_chemical_symbols())
 saddle_k5_dos = Doscar("saddle_k5_DOSCAR", ispin=1, lmax=2, lorbit=11, read_pdos=True, species=saddle_pos.get_chemical_symbols())
+saddle_k7_dos = Doscar("saddle_k7_DOSCAR", ispin=1, lmax=2, lorbit=11, read_pdos=True, species=saddle_pos.get_chemical_symbols())
 #print(min1_dos.species)
 #min1_dos.pdos_sum()
 
@@ -73,6 +76,16 @@ fig7.tight_layout()
 fig7.savefig("min1_k7_pdos.png")
 
 fig8, ax8 = plt.subplots(1, 1, figsize=(8.0, 4.0))
-saddle_k5_dos.plot_pdos(ax=ax8, colours=col, plot_total_dos=True, to_plot=orb_list_EF, xrange=Erange_EF)
+min2_k7_dos.plot_pdos(ax=ax8, colours=col, plot_total_dos=True, to_plot=orb_list_EF, xrange=Erange_EF, ymax=670)
 fig8.tight_layout()
-fig8.savefig("saddle_k5_pdos.png")
+fig8.savefig("min2_k7_pdos.png")
+
+fig9, ax9 = plt.subplots(1, 1, figsize=(8.0, 4.0))
+saddle_k5_dos.plot_pdos(ax=ax9, colours=col, plot_total_dos=True, to_plot=orb_list_EF, xrange=Erange_EF)
+fig9.tight_layout()
+fig9.savefig("saddle_k5_pdos.png")
+
+fig10, ax10 = plt.subplots(1, 1, figsize=(8.0, 4.0))
+saddle_k7_dos.plot_pdos(ax=ax10, colours=col, plot_total_dos=True, to_plot=orb_list_EF, xrange=Erange_EF)
+fig10.tight_layout()
+fig10.savefig("saddle_k7_pdos.png")
