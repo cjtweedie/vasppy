@@ -1,11 +1,16 @@
 import numpy as np
 import pandas as pd  # type: ignore
+import math
 import matplotlib.pyplot as plt  # type: ignore
 from matplotlib.axes import Axes  # type: ignore
 from matplotlib.figure import Figure  # type: ignore
 import matplotlib._color_data as mcd  # type: ignore
 from typing import ClassVar, Literal
 from collections.abc import Iterable, Sequence
+
+def find_nearest(array, value):
+    array = np.asarray(array)
+    return int((np.abs(array - value)).argmin())
 
 
 TABLEAU_GREY: str = "#bab0ac"
@@ -72,7 +77,7 @@ class Doscar:
     def __init__(
         self,
         filename: str,
-        ispin: int = 2,
+        ispin: int = 1,
         lmax: int = 2,
         lorbit: int = 11,
         spin_orbit_coupling: bool = False,
@@ -84,7 +89,7 @@ class Doscar:
         Args:
             filename: Filename of the VASP DOSCAR file to read.
             ispin: ISPIN flag. Set to 1 for non-spin-polarised or 2 for
-                spin-polarised calculations. Default is 2.
+                spin-polarised calculations. Default is 1.
             lmax: Maximum l angular momentum (d=2, f=3). Default is 2.
             lorbit: The VASP LORBIT flag. Default is 11.
             spin_orbit_coupling: Spin-orbit coupling flag. Default is False.
@@ -151,17 +156,56 @@ class Doscar:
         Populates ``self.energy`` and ``self.tdos``.
         """
         start_to_read: int = Doscar.number_of_header_lines
-        df: pd.DataFrame = pd.read_csv(
-            self.filename,
-            skiprows=start_to_read,
-            nrows=self.number_of_data_points,
-            sep=r'\s+',
-            names=["energy", "up", "down", "int_up", "int_down"],
-            index_col=False,
-        )
+        # if ispin=2, DOSCAR contains up/down spin columns
+        if (self.ispin == 2):
+            df: pd.DataFrame = pd.read_csv(
+                self.filename,
+                skiprows=start_to_read,
+                nrows=self.number_of_data_points,
+                sep=r'\s+',
+                names=["energy", "up", "down", "int_up", "int_down"],
+                index_col=False,
+            )
+        # if ispin=1, DOSCAR only contains total and integrated DOS
+        else:
+            df: pd.DataFrame = pd.read_csv(
+                self.filename,
+                skiprows=start_to_read,
+                nrows=self.number_of_data_points,
+                sep=r'\s+',
+                names=["energy", "dos", "int"],
+                index_col=False,
+            )
         self.energy: np.ndarray = df.energy.values
         df = df.drop("energy", axis=1)
         self.tdos = df
+        self.tdos_vals: np.ndarray = df.dos.values
+        
+    # write function to find energy values below/above where the VB/CB densities vanish
+    # but only care about upper VB bulk, lower CB bulk
+    # so need to look in range around VBM/CBM; this going to be different for each material though
+    def find_EF_range(self):
+        E_min = 0
+        E_max = 0
+        energy = self.energy
+        tdos = self.tdos_vals
+        #print(self.tdos_vals)
+        # search from minimum energy level to E_F (FIX THIS LATER)
+        #print(find_nearest(energy, E_F))
+        for j in range(find_nearest(energy, self.efermi)-math.ceil(2.5/(energy[1]-energy[0])), 0, -1):
+           if tdos[j] == 0:
+                E_min = energy[j - 1]
+                break
+    
+        # search from E_F to maximum energy level (FIX THIS LATER)
+        for j in range(find_nearest(energy, self.efermi)+math.ceil(2.5/(energy[1]-energy[0])), energy.size):    
+            if tdos[j] == 0:
+                E_max = energy[j + 1]
+                break
+         
+        return [E_min, E_max]
+        
+             
     def read_atomic_dos_as_df(self, atom_number: int) -> pd.DataFrame:
         """Read the projected DOS for a single atom as a dataframe.
 
@@ -340,7 +384,7 @@ class Doscar:
         self,
         ax: Axes | None = None,
         to_plot: dict[str, list[str]] | None = None,
-        colours: Iterable | None = None,
+        colours: list[str] | None = None,
         plot_total_dos: bool | None = True,
         xrange: tuple[float, float] | None = None,
         ymax: float | None = None,
@@ -351,6 +395,7 @@ class Doscar:
         labels: bool = True,
         title_fontsize: int = 16,
         legend_pos: str = "outside",
+        ispin: int = 1,
     ) -> Figure | None:
         """Plot the projected density of states.
 
@@ -378,6 +423,8 @@ class Doscar:
             legend_pos: Legend position. Use ``'outside'`` to place the legend
                 to the right of the axes, or any valid Matplotlib legend
                 ``loc`` string. Default is ``'outside'``.
+            ispin: ISPIN flag. Set to 1 for non-spin-polarised or 2 for
+                spin-polarised calculations. Default is 1. 
 
         Returns:
             The :class:`matplotlib.figure.Figure` if a new figure was created,
@@ -387,13 +434,13 @@ class Doscar:
             fig, ax = plt.subplots(1, 1, figsize=(8.0, 3.0))
         else:
             fig = None
-        if not isinstance(ax, Axes):
-            raise TypeError("ax must be a matplotlib Axes instance")
-        if not colours:
-            colours = mcd.TABLEAU_COLORS
-        if not isinstance(colours, Iterable):
-            raise TypeError("colours must be an iterable")
-        color_iterator = (c for c in colours)
+        #if not isinstance(ax, Axes):
+            #raise TypeError("ax must be a matplotlib Axes instance")
+        #if not colours:
+            #colours = mcd.TABLEAU_COLORS
+        #if not isinstance(colours, Iterable):
+            #raise TypeError("colours must be an iterable")
+        #color_iterator = (c for c in colours)
 
         if not scaling:
             scaling = {}
@@ -414,6 +461,7 @@ class Doscar:
                 if self.lmax == 3:
                     to_plot[s].append("f")
 
+        c=0
         for species in to_plot.keys():
             if not isinstance(self.species, Iterable):
                 raise TypeError("species must be set before calling plot_pdos")
@@ -421,33 +469,70 @@ class Doscar:
             for state in to_plot[species]:
                 if state not in ["s", "p", "d", "f"]:
                     raise ValueError(f"'{state}' is not a valid orbital label")
-                color = next(color_iterator)
+                #color = next(color_iterator)
                 label = f"{species} {state}"
-                up_dos = self.pdos_sum(atoms=index, l=state, spin="up")[e_range]
-                down_dos = self.pdos_sum(atoms=index, l=state, spin="down")[e_range]
-                if species in scaling:
-                    if state in scaling[species]:
-                        up_dos *= scaling[species][state]
-                        down_dos *= scaling[species][state]
-                        label = rf"{species} {state} $\times${scaling[species][state]}"
-                auto_ymax = max([auto_ymax, up_dos.max(), down_dos.max()])
-                ax.plot(self.energy[e_range], up_dos, label=label, c=color)
-                ax.plot(self.energy[e_range], down_dos * -1.0, c=color)
-        if plot_total_dos:
-            ax.fill_between(
-                self.energy[e_range],
-                self.tdos.up.values[e_range],
-                self.tdos.down.values[e_range] * -1.0,
-                facecolor=TABLEAU_GREY,
-                alpha=0.2,
-            )
-            auto_ymax = max(
-                [
-                    auto_ymax,
-                    self.tdos.up.values[e_range].max(),
-                    self.tdos.down.values[e_range].max(),
-                ]
-            )
+                if ispin == 2:
+                    up_dos = self.pdos_sum(atoms=index, l=state, spin="up")[e_range]
+                    down_dos = self.pdos_sum(atoms=index, l=state, spin="down")[e_range]
+                    if species in scaling:
+                        if state in scaling[species]:
+                            up_dos *= scaling[species][state]
+                            down_dos *= scaling[species][state]
+                            label = rf"{species} {state} $\times${scaling[species][state]}"
+                    auto_ymax = max([auto_ymax, up_dos.max(), down_dos.max()])
+                    ymin = -ymax * 1.1
+                    #ax.plot(self.energy[e_range], up_dos, label=label, c=colour)
+                    #ax.plot(self.energy[e_range], down_dos * -1.0, c=colour)
+                    ax.plot(self.energy[e_range], up_dos, label=label, c=colours[c])
+                    ax.plot(self.energy[e_range], down_dos * -1.0, c=colours[c])
+                    c=c+1
+                else:
+                    both_dos = self.pdos_sum(atoms=index, l=state)[e_range]
+                    if species in scaling:
+                        if state in scaling[species]:
+                            label = rf"{species} {state} $\times${scaling[species][state]}"
+                    auto_ymax = max([auto_ymax, both_dos.max()])
+                    ymin = -0.1
+                    #ax.plot(self.energy[e_range], up_dos, label=label, c=colour)
+                    #ax.plot(self.energy[e_range], down_dos * -1.0, c=colour)
+                    ax.plot(self.energy[e_range], both_dos, label=label, c=colours[c])
+                    # add something here to plot the Fermi energy; or shift values to be relative to E_F
+                    c=c+1
+                     
+        if plot_total_dos == True:
+            #print("Plotting total DOS!")
+            if ispin == 2:
+                ax.fill_between(
+                    self.energy[e_range],
+                    self.tdos.up.values[e_range],
+                    self.tdos.down.values[e_range] * -1.0,
+                    facecolor=TABLEAU_GREY,
+                    alpha=0.2,
+                )
+                auto_ymax = max(
+                    [
+                        auto_ymax,
+                        self.tdos.up.values[e_range].max(),
+                        self.tdos.down.values[e_range].max(),
+                    ]
+                )
+            else:
+                #ax.fill_between(
+                #    self.energy[e_range],
+                #    self.tdos.dos.values[e_range],
+                #    facecolor=TABLEAU_GREY,
+                #    alpha=0.2,
+                #)
+                ax.plot(self.energy[e_range], self.tdos.dos.values[e_range], label="Total", c="black", linestyle='-')
+                auto_ymax = max(
+                    [
+                        auto_ymax,
+                        self.tdos.dos.values[e_range].max()
+                    ]
+                )
+                
+            #ymin = -ymax * 1.1
+        ax.axvline(x=self.efermi, c="black", label="$E_F$", linestyle='--')
 
         if xrange:
             ax.set_xlim(xrange[0], xrange[1])
@@ -455,22 +540,23 @@ class Doscar:
         if not ymax:
             ymax = 1.1 * auto_ymax
         ymax = float(ymax)
-        ax.set_ylim(-ymax * 1.1, ymax * 1.1)
+        ax.set_ylim(ymin, ymax * 1.1)
         if legend_pos == "outside":
             ax.legend(bbox_to_anchor=(1.01, 1.04), loc="upper left")
         else:
             ax.legend(loc=legend_pos)
         if labels:
             ax.set_xlabel("Energy [eV]")
-        ax.axhline(y=0, c="lightgrey")
-        ax.axes.grid(False, axis="y") # type: ignore
+            ax.set_ylabel("DOS [a.u.]")
+        #ax.axhline(y=0, c="lightgrey")
+        #ax.axes.grid(False, axis="y") # type: ignore
 
         ax.tick_params(
             axis="y",  # changes apply to the y-axis
             which="both",  # both major and minor ticks are affected
-            left=False,  # ticks along the left edge are off
+            #left=False,  # ticks along the left edge are off
             right=False,  # ticks along the right edge are off
-            labelleft=False,
+            #labelleft=False,
         )  # labels along the left edge are off
 
         if title:
